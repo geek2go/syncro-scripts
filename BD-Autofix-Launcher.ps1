@@ -32,7 +32,7 @@ $ErrorActionPreference = 'Stop'
 #   2. Your own web server
 #   3. Azure Blob Storage
 #   4. Any direct download URL
-$CleanupScriptUrl = "https://raw.githubusercontent.com/YOUR_ORG/YOUR_REPO/main/BD-Autofix-v7.ps1"
+$CleanupScriptUrl = "https://raw.githubusercontent.com/geek2go/syncro-scripts/main/BD-Autofix-v7.ps1"
 
 # Local paths
 $scriptDir = "C:\ProgramData\SyncroMSP\Scripts"
