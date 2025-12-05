@@ -5,25 +5,26 @@
   This script is intentionally simple to avoid triggering Defender.
   Deploy THIS script in Syncro instead of BD-Autofix-v7.ps1
 
-  Usage in Syncro:
-    BD-Autofix-Launcher.ps1 -AutoRebootIfNoUser
-    BD-Autofix-Launcher.ps1 -ScheduleRebootIfNeeded "02:00" -HandleMalwarebytes
-    BD-Autofix-Launcher.ps1 -ForceReboot -AggressiveBDCleanup
+  Syncro Script Variables (add these in Syncro script settings):
+    - AutoRebootIfNoUser (Checkbox) - Reboot if no user logged in
+    - ScheduleRebootIfNeeded (String) - Schedule reboot at HH:mm time
+    - HandleMalwarebytes (Checkbox) - Stop/disable Malwarebytes
+    - AggressiveBDCleanup (Checkbox) - Remove partial Bitdefender installs
+    - RemoveGenericAVs (Checkbox) - Remove Norton, McAfee, Avast, etc.
+    - ForceReboot (Checkbox) - Always reboot at end
 #>
 
-param(
-  [switch]$HandleMalwarebytes,
-  [switch]$AggressiveBDCleanup,
-  [switch]$AutoRebootIfNoUser,
-  [string]$ScheduleRebootIfNeeded,
-  [switch]$RemoveGenericAVs,
-  [switch]$ForceReboot,
-  [int]$RebootDelaySeconds = 60,
-  [switch]$LogActivity,
-  [switch]$CreateTicketOnFail,
-  [switch]$CloseAlertOnSuccess,
-  [switch]$NoExitZeroOnReboot         # By default, returns 0 on reboot. Set this to return 3010 instead.
-)
+# Syncro passes variables directly - check if they exist and convert to booleans
+$AutoRebootIfNoUser = if ($AutoRebootIfNoUser -eq "true" -or $AutoRebootIfNoUser -eq $true -or $AutoRebootIfNoUser -eq 1) { $true } else { $false }
+$HandleMalwarebytes = if ($HandleMalwarebytes -eq "true" -or $HandleMalwarebytes -eq $true -or $HandleMalwarebytes -eq 1) { $true } else { $false }
+$AggressiveBDCleanup = if ($AggressiveBDCleanup -eq "true" -or $AggressiveBDCleanup -eq $true -or $AggressiveBDCleanup -eq 1) { $true } else { $false }
+$RemoveGenericAVs = if ($RemoveGenericAVs -eq "true" -or $RemoveGenericAVs -eq $true -or $RemoveGenericAVs -eq 1) { $true } else { $false }
+$ForceReboot = if ($ForceReboot -eq "true" -or $ForceReboot -eq $true -or $ForceReboot -eq 1) { $true } else { $false }
+$LogActivity = if ($LogActivity -eq "true" -or $LogActivity -eq $true -or $LogActivity -eq 1) { $true } else { $false }
+$CreateTicketOnFail = if ($CreateTicketOnFail -eq "true" -or $CreateTicketOnFail -eq $true -or $CreateTicketOnFail -eq 1) { $true } else { $false }
+$CloseAlertOnSuccess = if ($CloseAlertOnSuccess -eq "true" -or $CloseAlertOnSuccess -eq $true -or $CloseAlertOnSuccess -eq 1) { $true } else { $false }
+if (-not $ScheduleRebootIfNeeded) { $ScheduleRebootIfNeeded = "" }
+if (-not $RebootDelaySeconds) { $RebootDelaySeconds = 60 }
 
 $ErrorActionPreference = 'Stop'
 
@@ -118,7 +119,8 @@ if ($RebootDelaySeconds -ne 60) { $argList += "-RebootDelaySeconds $RebootDelayS
 if ($LogActivity) { $argList += "-LogActivity" }
 if ($CreateTicketOnFail) { $argList += "-CreateTicketOnFail" }
 if ($CloseAlertOnSuccess) { $argList += "-CloseAlertOnSuccess" }
-if (-not $NoExitZeroOnReboot) { $argList += "-ExitZeroOnReboot" }
+# Always return 0 to Syncro (success) even when reboot is needed
+$argList += "-ExitZeroOnReboot"
 
 $argString = $argList -join " "
 Log "Running cleanup script with args: $argString"
