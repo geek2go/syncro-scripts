@@ -26,7 +26,8 @@ param(
   [int]$RebootDelaySeconds = 60,    # Delay before forced reboot (gives time for script to complete)
   [switch]$LogActivity,             # Log results to Syncro Asset Activity
   [switch]$CreateTicketOnFail,      # Create Syncro ticket if cleanup fails or needs attention
-  [switch]$CloseAlertOnSuccess      # Close bd_deployment_blocked alert if cleanup succeeds
+  [switch]$CloseAlertOnSuccess,     # Close bd_deployment_blocked alert if cleanup succeeds
+  [switch]$ExitZeroOnReboot         # Return exit code 0 instead of 3010 when reboot needed (for Syncro)
 )
 
 $ErrorActionPreference = 'Stop'
@@ -810,6 +811,12 @@ elseif ($global:RebootRequired) {
     $exitMessage = "Cleanup complete. REBOOT REQUIRED. Reasons: $($global:RebootReasons -join '; ')"
     $exitCode = 3010
   }
+}
+
+# Apply ExitZeroOnReboot if set
+if ($ExitZeroOnReboot -and $exitCode -eq 3010) {
+  W "ExitZeroOnReboot enabled - changing exit code from 3010 to 0"
+  $exitCode = 0
 }
 
 W "BD-Autofix v7 complete - exit code $exitCode"

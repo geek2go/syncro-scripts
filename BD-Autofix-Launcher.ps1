@@ -21,7 +21,8 @@ param(
   [int]$RebootDelaySeconds = 60,
   [switch]$LogActivity,
   [switch]$CreateTicketOnFail,
-  [switch]$CloseAlertOnSuccess
+  [switch]$CloseAlertOnSuccess,
+  [switch]$NoExitZeroOnReboot         # By default, returns 0 on reboot. Set this to return 3010 instead.
 )
 
 $ErrorActionPreference = 'Stop'
@@ -117,6 +118,7 @@ if ($RebootDelaySeconds -ne 60) { $argList += "-RebootDelaySeconds $RebootDelayS
 if ($LogActivity) { $argList += "-LogActivity" }
 if ($CreateTicketOnFail) { $argList += "-CreateTicketOnFail" }
 if ($CloseAlertOnSuccess) { $argList += "-CloseAlertOnSuccess" }
+if (-not $NoExitZeroOnReboot) { $argList += "-ExitZeroOnReboot" }
 
 $argString = $argList -join " "
 Log "Running cleanup script with args: $argString"
