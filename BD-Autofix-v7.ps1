@@ -373,9 +373,18 @@ if ($HandleMalwarebytes) {
 #region Webroot thorough cleanup
 W "=== Webroot cleanup phase ==="
 
-# Kill processes aggressively
-$wrProcs = @('WRSA','WRCoreService','WRConsumerService','WebrootSecureAnywhere','WRSkyClient')
+# Kill processes aggressively (expanded list including WRUS64)
+$wrProcs = @('WRSA','WRUS64','WRCoreService','WRConsumerService','WebrootSecureAnywhere','WRSkyClient','WRUSR','WRUpgradeTool')
 foreach ($p in $wrProcs) { Kill-ProcessByName $p -Aggressive }
+
+# Extra aggressive: kill anything with WR prefix
+Try-Quiet {
+  Get-Process | Where-Object { $_.Name -match '^WR' } | ForEach-Object {
+    W "Killing WR process: $($_.Name) (PID $($_.Id))"
+    Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+    cmd /c "taskkill /F /PID $($_.Id) /T 2>nul" | Out-Null
+  }
+} "kill all WR processes"
 
 # Stop and delete services
 Try-Quiet {
@@ -419,7 +428,7 @@ Try-Quiet {
     ForEach-Object { Remove-RegKey $_.PSPath }
 } "remove WR service keys"
 
-# Run WRUpgradeTool in background
+# Run WRUpgradeTool and wait for completion
 Try-Quiet {
   $wrUrl = 'https://download.webroot.com/WRUpgradeTool.exe'
   $tmpFile = Join-Path $env:TEMP "WRUpgradeTool_$(Get-Random).exe"
@@ -428,9 +437,22 @@ Try-Quiet {
   Invoke-WebRequest -Uri $wrUrl -OutFile $tmpFile -UseBasicParsing -TimeoutSec 60
 
   if (Test-Path $tmpFile) {
-    W "Launching WRUpgradeTool (async): $tmpFile"
-    Start-Process -FilePath $tmpFile -WindowStyle Hidden
-    Start-Sleep -Seconds 5
+    W "Running WRUpgradeTool (waiting up to 120 seconds)..."
+    $proc = Start-Process -FilePath $tmpFile -ArgumentList "/s /norestart" -WindowStyle Hidden -PassThru
+    $completed = $proc.WaitForExit(120000)  # 2 minute timeout
+    if ($completed) {
+      W "WRUpgradeTool completed with exit code: $($proc.ExitCode)"
+    } else {
+      W "WRUpgradeTool timed out - killing process"
+      $proc | Stop-Process -Force -ErrorAction SilentlyContinue
+    }
+
+    # Kill any WR processes that may have started during removal
+    Start-Sleep -Seconds 2
+    Get-Process | Where-Object { $_.Name -match '^WR' } | ForEach-Object {
+      W "Post-tool cleanup: killing $($_.Name)"
+      Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+    }
   }
 } "WRUpgradeTool stage"
 #endregion
