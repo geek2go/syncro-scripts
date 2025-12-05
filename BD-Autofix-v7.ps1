@@ -429,6 +429,22 @@ Try-Quiet {
     ForEach-Object { Remove-RegKey $_.PSPath }
 } "remove WR service keys"
 
+# Try WRSA.exe uninstall (works for deactivated/orphaned installs)
+Try-Quiet {
+  $wrsaPath = "C:\Program Files\Webroot\WRSA.exe"
+  if (Test-Path $wrsaPath) {
+    W "Attempting WRSA.exe -uninstall..."
+    $proc = Start-Process -FilePath $wrsaPath -ArgumentList "-uninstall" -WindowStyle Hidden -PassThru
+    $completed = $proc.WaitForExit(60000)  # 1 minute timeout
+    if ($completed) {
+      W "WRSA uninstall completed with exit code: $($proc.ExitCode)"
+    } else {
+      W "WRSA uninstall timed out"
+      $proc | Stop-Process -Force -ErrorAction SilentlyContinue
+    }
+  }
+} "WRSA uninstall"
+
 # Run WRUpgradeTool and wait for completion
 Try-Quiet {
   $wrUrl = 'https://download.webroot.com/WRUpgradeTool.exe'
@@ -456,6 +472,19 @@ Try-Quiet {
     }
   }
 } "WRUpgradeTool stage"
+
+# Try to set boot drivers to disabled start type (prevents loading on next boot)
+Try-Quiet {
+  $bootDrivers = @('WRkrn', 'WRBoot', 'WRCore', 'WREDRD')
+  foreach ($drv in $bootDrivers) {
+    $regPath = "HKLM:\SYSTEM\CurrentControlSet\Services\$drv"
+    if (Test-Path $regPath) {
+      # Set Start to 4 (Disabled)
+      Set-ItemProperty -Path $regPath -Name "Start" -Value 4 -Type DWord -Force -ErrorAction SilentlyContinue
+      W "Set $drv Start=4 (Disabled)"
+    }
+  }
+} "disable boot drivers"
 #endregion
 
 #region Generic AV Removal
