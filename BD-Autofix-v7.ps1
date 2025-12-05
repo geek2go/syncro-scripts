@@ -224,25 +224,44 @@ function Stop-DriverSafely { param([string]$driverName)
 #region Pre-flight Checks
 Write-Section "PRE-FLIGHT CHECKS"
 
-# Check Syncro agent
+# Check Syncro agent (multiple possible service names)
 $syncroOK = $false
-$syncroService = Get-Service -Name "SyncroMSP" -ErrorAction SilentlyContinue
+$syncroServiceNames = @(
+  "SyncroMSP",
+  "SyncroLive.Agent.Runner",
+  "SyncroLive*",
+  "Syncro*"
+)
+
+$syncroService = $null
+foreach ($svcName in $syncroServiceNames) {
+  $syncroService = Get-Service -Name $svcName -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($syncroService) { break }
+}
+
 if ($syncroService) {
   if ($syncroService.Status -eq 'Running') {
-    W "Syncro agent: Running"
+    W "Syncro agent: Running ($($syncroService.Name))"
     $syncroOK = $true
   } else {
-    W "WARNING: Syncro agent exists but not running (Status: $($syncroService.Status))"
-    Try-Quiet { Start-Service -Name "SyncroMSP" -ErrorAction SilentlyContinue } "start Syncro"
+    W "WARNING: Syncro agent exists but not running ($($syncroService.Name) = $($syncroService.Status))"
+    Try-Quiet { Start-Service -Name $syncroService.Name -ErrorAction SilentlyContinue } "start Syncro"
     Start-Sleep -Seconds 2
-    $syncroService = Get-Service -Name "SyncroMSP" -ErrorAction SilentlyContinue
+    $syncroService = Get-Service -Name $syncroService.Name -ErrorAction SilentlyContinue
     if ($syncroService.Status -eq 'Running') {
       W "Syncro agent: Started successfully"
       $syncroOK = $true
     }
   }
 } else {
-  W "WARNING: SyncroMSP service not found - Bitdefender cannot deploy without Syncro!"
+  # Also check for running process as fallback
+  $syncroProc = Get-Process -Name "*Syncro*" -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($syncroProc) {
+    W "Syncro agent: Running (detected via process: $($syncroProc.Name))"
+    $syncroOK = $true
+  } else {
+    W "WARNING: Syncro service/process not found - Bitdefender cannot deploy without Syncro!"
+  }
 }
 
 # Check for existing pending reboot
